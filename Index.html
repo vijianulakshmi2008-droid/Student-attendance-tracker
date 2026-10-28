@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Attendance Tracker</title>
+<style> /* CSS shown in the next section */ </style>
+</head>
+<body>
+<header>
+ <h1>&#128203; Student Attendance Tracker</h1>
+ <p>Maintain student records, mark daily attendance, and monitor attendance percentages</p>
+</header>
+<div class="container">
+ <!-- Summary cards: total students, present, absent, overall % -->
+ <div class="summary" id="summaryStats"></div>
+ <div class="grid">
+ <!-- LEFT: Add/Edit student + mark attendance -->
+ <div>
+ <div class="card">
+ <h2 id="studentFormTitle">1. Add Student</h2>
+ <label for="studentName">Student Name</label>
+ <input type="text" id="studentName" placeholder="e.g. Aditi Sharma">
+ <label for="studentId">Student ID</label>
+ <input type="text" id="studentId" placeholder="e.g. CS-21">
+ <label for="studentDept">Department</label>
+ <input type="text" id="studentDept" placeholder="e.g. Computer Science"> 5
+ <div class="row">
+ <button class="btn-primary" id="studentFormBtn" onclick="saveStudent()">Add Student</button>
+ <button class="btn-outline" id="cancelEditBtn" style="display:none;"
+ onclick="cancelEdit()">Cancel</button>
+ </div>
+ </div>
+ <div class="card" style="margin-top:20px;">
+ <h2>2. Mark Attendance</h2>
+ <label for="attendanceDate">Date</label>
+ <input type="date" id="attendanceDate">
+ <label for="thresholdInput">Low-attendance threshold (%)</label>
+ <input type="number" id="thresholdInput" value="75" min="0" max="100"
+ onchange="renderStudents()">
+ <div id="markList" style="margin-top:12px;"></div>
+ </div>
+ </div>
+ <!-- RIGHT: search, student table, history -->
+ <div>
+ <div class="card">
+ <div class="toolbar">
+ <h2 style="border:none;padding:0;margin:0;">3. Students &amp; Attendance %</h2>
+ </div>
+ <label for="searchBox">Search by name, ID, or department</label>
+ <input type="text" id="searchBox" placeholder="Type to search..." oninput="renderStudents()">
+ <label for="statusFilter">Filter by today's status</label>
+ <select id="statusFilter" onchange="renderStudents()">
+ <option value="">All</option>
+ <option value="present">Present</option>
+ <option value="absent">Absent</option>
+ <option value="late">Late</option>
+ <option value="excused">Excused</option>
+ <option value="unmarked">Not marked today</option>
+ </select>
+ <table>
+ <thead>
+ <tr><th>ID</th><th>Name</th><th>Dept</th><th>Attendance</th><th></th></tr>
+ </thead>
+ <tbody id="studentTableBody"></tbody>
+ </table>
+ <div id="studentEmpty" class="empty" style="display:none;">No students match.</div>
+ </div>
+ <div class="card" style="margin-top:20px;">
+ <h2>4. Attendance History</h2>
+ <label for="historySelect">Select Student</label>
+ <select id="historySelect" onchange="renderHistory()"></select>
+ <div id="historyBody" class="history-list"></div>
+ </div>
+ </div>
+ </div>
+</div>
+<script> /* JavaScript shown in its own section */ </script>
+</body>
+</html>
+CSS
+CSS styles the application using colour variables defined in :root, a gradient header, card layout,
+form controls, coloured status buttons and pills, progress bars and the red low-attendance row.
+CSS Grid and media queries (700px and 900px) make the layout responsive.
+:root{
+ --primary:#2f5fdb; --primary-dark:#1f3f9e; --bg:#f4f6fb; --card:#ffffff;
+ --text:#1f2430; --muted:#6b7280; --border:#e3e7ef; --low:#fdeaea;
+ --present:#1f9d55; --absent:#d64545; --late:#d99a1b; --excused:#6b46c1;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);}
+header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:20px 24px;}
+header h1{margin:0;font-size:1.5rem;}
+header p{margin:4px 0 0;opacity:.9;font-size:.9rem;}
+.container{max-width:1200px;margin:0 auto;padding:20px;}
+/* Summary cards: 2 columns on mobile, 4 on desktop */
+.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;}
+@media(min-width:700px){.summary{grid-template-columns:repeat(4,1fr);}}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px; 6
+ text-align:center;}
+.stat .num{font-size:1.5rem;font-weight:700;color:var(--primary-dark);}
+.stat .label{font-size:.78rem;color:var(--muted);margin-top:4px;}
+/* Main layout: single column on mobile, two columns above 900px */
+.grid{display:grid;grid-template-columns:1fr;gap:20px;}
+@media(min-width:900px){.grid{grid-template-columns:1fr 1.5fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;
+ box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.card h2{margin-top:0;font-size:1.05rem;border-bottom:1px solid var(--border);padding-bottom:10px;}
+/* Form controls and buttons */
+label{display:block;font-size:.8rem;color:var(--muted);margin:10px 0 4px;}
+input[type=text],input[type=date],input[type=number],select{
+ width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.92rem;
+}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:.85rem;font-weight:600;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+.btn-outline{background:#fff;border:1px solid var(--border);color:var(--text);}
+.btn-present{background:#e8f8ee;color:var(--present);}
+.btn-absent{background:#fdeaea;color:var(--absent);}
+.btn-late{background:#fdf3de;color:var(--late);}
+.btn-excused{background:#efe8fb;color:var(--excused);}
+.btn-xs{padding:4px 8px;font-size:.72rem;}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+/* Table, low-attendance highlight, status pills and progress bar */
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.84rem;}
+th,td{padding:7px 6px;text-align:left;border-bottom:1px solid var(--border);}
+th{color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;}
+tr.low-attendance{background:var(--low);}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;}
+.pill.present{background:#e8f8ee;color:var(--present);}
+.pill.absent{background:#fdeaea;color:var(--absent);}
+.pill.late{background:#fdf3de;color:var(--late);}
+.pill.excused{background:#efe8fb;color:var(--excused);}
+.pct-bar{height:6px;border-radius:4px;background:var(--border);overflow:hidden;margin-top:4px;}
+.pct-fill{height:100%;background:var(--primary);}
+.pct-fill.low{background:var(--absent);}
+.empty{color:var(--muted);font-size:.84rem;padding:10px 0;}
+.history-list{max-height:260px;overflow-y:auto;}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.actions-cell{display:flex;gap:4px;flex-wrap:wrap;}
+.small{font-size:.76rem;color:var(--muted);}
+JavaScript
+JavaScript implements the application logic: it loads and saves data in Local Storage, validates
+and stores students, records attendance by date, calculates percentages, applies search, filter and
+threshold rules, and re-renders the summary, student table and history after every change.
+/* Data model
+ students = [{ id, name, studentId, dept }]
+ attendance = { "2026-10-27": { id: "present" | "absent" | "late" | "excused" } } */
+const STORAGE_KEY_STUDENTS = "att_tracker_students";
+const STORAGE_KEY_ATTENDANCE = "att_tracker_attendance";
+let students = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENTS) || "[]");
+let attendance = JSON.parse(localStorage.getItem(STORAGE_KEY_ATTENDANCE) || "{}");
+let nextId = students.length ? Math.max(...students.map(s => s.id)) + 1 : 1;
+let editingId = null;
+function persist(){
+ localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(students));
+ localStorage.setItem(STORAGE_KEY_ATTENDANCE, JSON.stringify(attendance));
+}
+function todayStr(){
+ const d = new Date();
+ return d.toISOString().split("T")[0];
+}
+document.getElementById("attendanceDate").value = todayStr();
+/* ---------- Add / Edit / Delete student ---------- */
+function saveStudent(){
+ const nameEl = document.getElementById("studentName");
+ const idEl = document.getElementById("studentId");
+ const deptEl = document.getElementById("studentDept");
+ const name = nameEl.value.trim();
+ const studentId = idEl.value.trim(); 7
+ const dept = deptEl.value.trim();
+ if(!name || !studentId || !dept){
+ alert("Please fill in name, student ID, and department.");
+ return;
+ }
+ const duplicate = students.some(s =>
+ s.studentId.toLowerCase() === studentId.toLowerCase() && s.id !== editingId);
+ if(duplicate){
+ alert("A student with this ID already exists.");
+ return;
+ }
+ if(editingId !== null){
+ const s = students.find(s => s.id === editingId);
+ s.name = name; s.studentId = studentId; s.dept = dept;
+ cancelEdit();
+ } else {
+ students.push({ id: nextId++, name, studentId, dept });
+ }
+ nameEl.value = ""; idEl.value = ""; deptEl.value = "";
+ persist();
+ renderAll();
+}
+function editStudent(id){
+ const s = students.find(s => s.id === id);
+ if(!s) return;
+ editingId = id;
+ document.getElementById("studentName").value = s.name;
+ document.getElementById("studentId").value = s.studentId;
+ document.getElementById("studentDept").value = s.dept;
+ document.getElementById("studentFormTitle").textContent = "1. Edit Student";
+ document.getElementById("studentFormBtn").textContent = "Save Changes";
+ document.getElementById("cancelEditBtn").style.display = "inline-block";
+}
+function cancelEdit(){
+ editingId = null;
+ document.getElementById("studentName").value = "";
+ document.getElementById("studentId").value = "";
+ document.getElementById("studentDept").value = "";
+ document.getElementById("studentFormTitle").textContent = "1. Add Student";
+ document.getElementById("studentFormBtn").textContent = "Add Student";
+ document.getElementById("cancelEditBtn").style.display = "none";
+}
+function deleteStudent(id){
+ if(!confirm("Delete this student and all their attendance records?")) return;
+ students = students.filter(s => s.id !== id);
+ for(const date in attendance) delete attendance[date][id];
+ if(editingId === id) cancelEdit();
+ persist();
+ renderAll();
+}
+/* ---------- Mark attendance: upsert, so duplicates are impossible ---------- */
+function markAttendance(studentId, status){
+ const date = document.getElementById("attendanceDate").value || todayStr();
+ if(!attendance[date]) attendance[date] = {};
+ attendance[date][studentId] = status;
+ persist();
+ renderAll();
+}
+/* ---------- Percentage and threshold ---------- */
+function calcPercentage(studentId){
+ let total = 0, present = 0;
+ for(const date in attendance){
+ const status = attendance[date][studentId];
+ if(status !== undefined){
+ total++;
+ if(status === "present" || status === "late") present++; // late still counts as attended
+ }
+ }
+ if(total === 0) return null;
+ return Math.round((present/total)*100);
+}
+function getThreshold(){
+ const v = parseInt(document.getElementById("thresholdInput").value, 10);
+ return isNaN(v) ? 75 : v;
+}
+/* ---------- Summary cards ---------- */
+function renderSummary(){
+ const date = document.getElementById("attendanceDate").value || todayStr(); 8
+ const todays = attendance[date] || {};
+ const total = students.length;
+ let present = 0, absent = 0;
+ students.forEach(s => {
+ const st = todays[s.id];
+ if(st === "present" || st === "late") present++;
+ if(st === "absent") absent++;
+ });
+ let overallTotal = 0, overallPresent = 0;
+ students.forEach(s => {
+ for(const d in attendance){
+ const st = attendance[d][s.id];
+ if(st !== undefined){
+ overallTotal++;
+ if(st === "present" || st === "late") overallPresent++;
+ }
+ }
+ });
+ const overallPct = overallTotal === 0 ? 0 : Math.round((overallPresent/overallTotal)*100);
+ const stats = [
+ { num: total, label: "Total Students" },
+ { num: present, label: "Present Today" },
+ { num: absent, label: "Absent Today" },
+ { num: overallPct + "%", label: "Overall Attendance" },
+ ];
+ document.getElementById("summaryStats").innerHTML = stats.map(s =>
+ `<div class="stat"><div class="num">${s.num}</div><div class="label">${s.label}</div></div>`
+ ).join("");
+}
+/* ---------- Attendance buttons for every student ---------- */
+function renderMarkList(){
+ const container = document.getElementById("markList");
+ const date = document.getElementById("attendanceDate").value || todayStr();
+ container.innerHTML = "";
+ if(students.length === 0){
+ container.innerHTML = '<div class="empty">Add students first to mark attendance.</div>';
+ return;
+ }
+ students.forEach(s => {
+ const status = (attendance[date] && attendance[date][s.id]) || null;
+ const row = document.createElement("div");
+ row.style.cssText = "display:flex;justify-content:space-between;align-items:center;" +
+ "padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;";
+ row.innerHTML = `
+ <span>${s.name} <span class="small">(${s.studentId})</span></span>
+ <span class="row" style="margin:0;">
+ <button class="btn-xs ${status==='present' ? 'btn-primary' : 'btn-present'}"
+ onclick="markAttendance(${s.id},'present')">Present</button>
+ <button class="btn-xs ${status==='absent' ? 'btn-primary' : 'btn-absent'}"
+ onclick="markAttendance(${s.id},'absent')">Absent</button>
+ <button class="btn-xs ${status==='late' ? 'btn-primary' : 'btn-late'}"
+ onclick="markAttendance(${s.id},'late')">Late</button>
+ <button class="btn-xs ${status==='excused' ? 'btn-primary' : 'btn-excused'}"
+ onclick="markAttendance(${s.id},'excused')">Excused</button>
+ </span>`;
+ container.appendChild(row);
+ });
+}
+/* ---------- Student table: search + status filter + low-attendance highlight ---------- */
+function renderStudents(){
+ const tbody = document.getElementById("studentTableBody");
+ const emptyMsg = document.getElementById("studentEmpty");
+ const query = document.getElementById("searchBox").value.trim().toLowerCase();
+ const statusFilterVal = document.getElementById("statusFilter").value;
+ const date = document.getElementById("attendanceDate").value || todayStr();
+ const threshold = getThreshold();
+ tbody.innerHTML = "";
+ const filtered = students.filter(s => {
+ const matchesQuery = !query ||
+ s.name.toLowerCase().includes(query) ||
+ s.studentId.toLowerCase().includes(query) ||
+ s.dept.toLowerCase().includes(query);
+ if(!matchesQuery) return false;
+ if(statusFilterVal){
+ const st = (attendance[date] && attendance[date][s.id]) || null;
+ if(statusFilterVal === "unmarked") return st === null;
+ return st === statusFilterVal;
+ }
+ return true; 9
+ });
+ if(filtered.length === 0){
+ emptyMsg.style.display = "block";
+ return;
+ }
+ emptyMsg.style.display = "none";
+ filtered.forEach(s => {
+ const pct = calcPercentage(s.id);
+ const pctLabel = pct === null ? "No data" : pct + "%";
+ const isLow = pct !== null && pct < threshold;
+ const tr = document.createElement("tr");
+ if(isLow) tr.className = "low-attendance";
+ tr.innerHTML = `
+ <td>${s.studentId}</td>
+ <td>${s.name}</td>
+ <td>${s.dept}</td>
+ <td>
+ ${pctLabel}
+ <div class="pct-bar"><div class="pct-fill ${isLow ? 'low' : ''}"
+ style="width:${pct||0}%"></div></div>
+ </td>
+ <td>
+ <div class="actions-cell">
+ <button class="btn-outline btn-xs" onclick="editStudent(${s.id})">Edit</button>
+ <button class="btn-outline btn-xs" onclick="deleteStudent(${s.id})">Delete</button>
+ </div>
+ </td>`;
+ tbody.appendChild(tr);
+ });
+}
+/* ---------- Attendance history ---------- */
+function renderHistorySelect(){
+ const select = document.getElementById("historySelect");
+ const currentVal = select.value;
+ select.innerHTML = "";
+ if(students.length === 0){
+ select.innerHTML = '<option value="">No students</option>';
+ return;
+ }
+ students.forEach(s => {
+ const opt = document.createElement("option");
+ opt.value = s.id;
+ opt.textContent = `${s.name} (${s.studentId})`;
+ select.appendChild(opt);
+ });
+ if(currentVal) select.value = currentVal;
+}
+function renderHistory(){
+ const select = document.getElementById("historySelect");
+ const body = document.getElementById("historyBody");
+ const studentId = parseInt(select.value);
+ body.innerHTML = "";
+ if(!studentId){
+ body.innerHTML = '<div class="empty">Select a student to view history.</div>';
+ return;
+ }
+ const dates = Object.keys(attendance).sort().reverse(); // newest first
+ const records = dates.filter(d => attendance[d][studentId] !== undefined);
+ if(records.length === 0){
+ body.innerHTML = '<div class="empty">No attendance recorded yet for this student.</div>';
+ return;
+ }
+ const table = document.createElement("table");
+ table.innerHTML = `<thead><tr><th>Date</th><th>Status</th></tr></thead>`;
+ const tbody = document.createElement("tbody");
+ records.forEach(d => {
+ const status = attendance[d][studentId];
+ const tr = document.createElement("tr");
+ tr.innerHTML = `<td>${d}</td><td><span class="pill ${status}">${status}</span></td>`;
+ tbody.appendChild(tr);
+ });
+ table.appendChild(tbody);
+ body.appendChild(table);
+}
+/* ---------- Render everything + start-up ---------- */
+function renderAll(){
+ renderSummary();
+ renderMarkList();
+ renderStudents(); 10
+ renderHistorySelect();
+ renderHistory();
+}
+document.getElementById("attendanceDate").addEventListener("change", renderAll);
+// Seed demo students only if storage is empty, so the UI isn't blank on first load
+if(students.length === 0){
+ students.push({id: nextId++, name:"Aditi Sharma", studentId:"CS-21", dept:"Computer Science"});
+ students.push({id: nextId++, name:"Rohan Verma", studentId:"CS-22", dept:"Computer Science"});
+ persist();
+}
+renderAll();
+4.3 Project Execution
+How to run:
+• Save the project as index.html (no install
